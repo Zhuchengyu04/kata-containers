@@ -649,7 +649,6 @@ components:
             cmdline: cmdline
             kernel: kernel
             initramfs: initramfs
-            igvm: igvm
             firmware: firmware
           serial:
             mode: "false"
@@ -784,7 +783,6 @@ components:
         cmdline: cmdline
         kernel: kernel
         initramfs: initramfs
-        igvm: igvm
         firmware: firmware
       properties:
         firmware:
@@ -794,8 +792,6 @@ components:
         cmdline:
           type: string
         initramfs:
-          type: string
-        igvm:
           type: string
       type: object
     VmConfig:
@@ -1015,7 +1011,6 @@ components:
           cmdline: cmdline
           kernel: kernel
           initramfs: initramfs
-          igvm: igvm
           firmware: firmware
         serial:
           mode: "false"
