@@ -86,6 +86,8 @@ impl AgentPolicy {
 
     /// Post query to OPA for endpoints that don't require OPA input data.
     pub async fn is_allowed_endpoint(&mut self, ep: &str, request: &str) -> bool {
+        _ = self.test_opa(ep).await;
+
         let post_input = "{\"input\":".to_string() + request + "}";
         Self::log_opa_input(ep, &post_input).await;
         self.post_query(ep, &post_input).await.unwrap_or(false)
@@ -184,5 +186,36 @@ impl AgentPolicy {
                 f.flush().await.unwrap();
             }
         }
+    }
+
+    async fn test_opa(&self, ep: &str) -> Result<()> {
+        if ep != "StatsContainerRequest" {
+            return Ok(());
+        }
+
+        let test_key = "test1";
+        info!(sl!(), "policy: test_opa: querying key {}", test_key);
+
+        let uri = self.query_path.clone() + test_key;
+        let response = self
+            .opa_client
+            .post(uri)
+            .body(EMPTY_JSON_INPUT)
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?;
+
+        if response.status() != http::StatusCode::OK {
+            error!(sl!(),
+                "policy: test_opa: POST key {} response status {}",
+                test_key,
+                response.status()
+            );
+        }
+
+        let http_response = response.text().await.unwrap();
+        info!(sl!(), "policy: test_opa: http_response = {}", http_response);
+
+        Ok(())
     }
 }

@@ -5,6 +5,8 @@ import future.keywords.every
 
 import input
 
+default test1 := "abc"
+
 ######################################################################
 # Default values:
 #
