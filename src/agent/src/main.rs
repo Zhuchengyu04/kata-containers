@@ -76,6 +76,8 @@ mod tracer;
 
 #[cfg(feature = "agent-policy")]
 mod policy;
+#[cfg(feature = "agent-policy")]
+mod policy_config;
 
 cfg_if! {
     if #[cfg(target_arch = "s390x")] {

@@ -9,6 +9,8 @@ use slog::Drain;
 use tokio::io::AsyncWriteExt;
 use tokio::time::{sleep, Duration};
 
+use crate::policy_config;
+
 static EMPTY_JSON_INPUT: &str = "{\"input\":{}}";
 
 static OPA_DATA_PATH: &str = "/data";
@@ -27,6 +29,12 @@ macro_rules! sl {
 #[derive(Debug, Serialize, Deserialize)]
 struct AllowResponse {
     result: bool,
+}
+
+/// Example of HTTP response from OPA: {"result":"foo""}
+#[derive(Debug, Serialize, Deserialize)]
+struct StringResponse {
+    result: String,
 }
 
 /// Singleton policy object.
@@ -128,8 +136,12 @@ impl AgentPolicy {
 
     /// Ask OPA to check if an API call should be allowed or not.
     pub async fn is_allowed_endpoint(&mut self, ep: &str, request: &str) -> bool {
+        // TODO: remove this test
+        test_query_data().await;
+
         let post_input = format!("{{\"input\":{request}}}");
         self.log_opa_input(ep, &post_input).await;
+
         match self.post_query(ep, &post_input).await {
             Err(e) => {
                 debug!(
@@ -243,6 +255,45 @@ impl AgentPolicy {
             }
         }
     }
+
+    pub async fn get_data(&mut self, path: &str) -> Result<String> {
+        debug!(sl!(), "policy read: {path}");
+        self.log_opa_input(path, EMPTY_JSON_INPUT).await;
+
+        if let Some(opa_client) = &mut self.opa_client {
+            let uri = format!("{}{path}", &self.query_path);
+            let response = opa_client
+                .post(uri.clone())
+                .body(EMPTY_JSON_INPUT.to_string())
+                .send()
+                .await?;
+
+            if response.status() != http::StatusCode::OK {
+                bail!("policy read: POST {uri} response status {}", response.status());
+            }
+
+            let http_response = response.text().await?;
+            let trimmed_response = http_response.trim();
+
+            if trimmed_response == "{}" {
+                let error = format!("policy read: <{uri}> not found in policy");
+                debug!(sl!(), "{error}");
+                bail!(error)
+            } else {
+                let opa_response: serde_json::Result<StringResponse> =
+                    serde_json::from_str(&http_response);
+                match opa_response {
+                    Ok(resp) => {
+                        debug!(sl!(), "policy read: {path} -> <{}>", &resp.result);
+                        Ok(resp.result)
+                    },
+                    Err(e) => bail!("policy read: POST {uri} serde error {e}"),
+                }
+            }
+        } else {
+            bail!("Agent Policy is not initialized")
+        }
+    }
 }
 
 fn start_opa(opa_addr: &str) -> Result<()> {
@@ -264,4 +315,12 @@ fn start_opa(opa_addr: &str) -> Result<()> {
         }
     }
     bail!("OPA binary not found in {:?}", &bin_dirs);
+}
+
+async fn test_query_data() {
+    let key = "default/key/ssh-demo";
+    match policy_config::get_string_value(&key).await {
+        Ok(value) => debug!(sl!(), "test_query_data: <{key}> -> <{value}>"),
+        Err(e) => debug!(sl!(), "test_query_data: <{key}> -> error <{e}>"),
+    }
 }
