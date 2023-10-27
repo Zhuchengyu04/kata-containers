@@ -38,6 +38,8 @@ CreateContainerRequest {
     i_oci := input.OCI
     i_storages := input.storages
 
+    print("i_oci: ", i_oci)
+
     some p_container in policy_data.containers
     print("======== CreateContainerRequest: trying next policy container")
 
