@@ -6,14 +6,11 @@ The Kata Containers policy generation tool (`genpolicy`):
 
 1. Infers user's intentions based on the contents of that file.
 
-1. Generates a Kata Containers Agent (`kata-agent`) policy file
-corresponding to the input YAML, using the [Open Policy Agent format](https://www.openpolicyagent.org/docs/latest/policy-language/).
+1. Generates a Kata Containers Agent (`kata-agent`) policy file corresponding to the input YAML, using the [Open Policy Agent format](https://www.openpolicyagent.org/docs/latest/policy-language/).
 
 1. Appends the policy as an annotation to user's YAML file.
 
-When the user deploys that YAML file, the Kata Agent uses the attached
-policy to reject possible Agent API calls that are not consistent with
-the policy.
+When the user deploys that YAML file, the Kata Agent uses the attached policy to reject possible Agent API calls that are not consistent with the policy.
 
 Example:
 
