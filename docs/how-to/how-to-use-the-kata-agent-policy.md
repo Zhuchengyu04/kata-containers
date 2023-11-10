@@ -99,17 +99,17 @@ package agent_policy
 ```
 ### Default values
 
-When the Kata Shim sends a [ttRPC API](../../src/libs/protocols/protos/agent.proto) request to the Kata Agent, the [Policy rules](#rules) corresponding to that request type are evaluated. For example, when the Agent receives a `CopyFileRequest`, any rules defined in the Policy that are using the name `CopyFileRequest` are evaluated. [`OPA`](https://www.openpolicyagent.org/) evaluates these rules and tries to find at least one `CopyFileRequest` rule that returns value `true`:
+When the Kata Shim sends a [ttRPC API](../../src/libs/protocols/protos/agent.proto) request to the Kata Agent, the [Policy rules](#rules) corresponding to that request type are evaluated. For example, when the Agent receives a `CopyFile` request, any rules defined in the Policy that are using the name `CopyFileRequest` are evaluated. [`OPA`](https://www.openpolicyagent.org/) evaluates these rules and tries to find at least one `CopyFileRequest` rule that returns value `true`:
 
 1. If at least one `CopyFileRequest` rule returns `true`, `OPA` returns a `true` result to the Kata Agent, and the Agent carries out the file copy requested by the Shim.
 
 1. If all the `CopyFileRequest` rules return `false`:
      - If the Policy includes a default value for `CopyFileRequest`, `OPA` returns that value to the Agent.
-     - If the Policy doesn't include a default value for `CopyFileRequest`, `OPA` returns an empty response to the Agent. The Agent treats the empty response the same way as a `false` response, so it rejects the `CopyFileRequest`.
+     - If the Policy doesn't include a default value for `CopyFileRequest`, `OPA` returns an empty response to the Agent. The Agent treats the empty response the same way as a `false` response, so it rejects the `CopyFile` request.
 
 **Tip:** Although the Kata Agent treats empty responses from `OPA` similarly to `false` responses, it is recommended to always provide default values. With default values, the Policy document and the logs from `OPA` and Kata Agent are easier to understand.
 
-Example of default values:
+Examples of default values:
 
 ```
 default WaitProcessRequest := true
@@ -136,7 +136,7 @@ policy_data := {
         "/bin/foo"
       ],
       "regex": []
-    },
+    }
   }
 }
 ```
@@ -145,9 +145,9 @@ policy_data := {
 
 Policy rules are optional. They typically compare the input parameters of a [ttRPC API](../../src/libs/protocols/protos/agent.proto) request with values from the [policy data](#policy-data). Based on this comparison, a rule can either allow or deny the request, by returning `true` or `false`.
 
-Multiple rules having the same name can be defined in the same Policy. As described [above](#default-values), when [`OPA`](https://www.openpolicyagent.org/) is queried by the Kata Agent, using [`OPA REST API`](https://www.openpolicyagent.org/docs/latest/rest-api/), `OPA` tries to find at least one rule having the same name as the request that returns `true` given the API input parameters.
+Multiple rules having the same name can be defined in the same Policy. As described [above](#default-values), when the Kata Agent queries [`OPA`](https://www.openpolicyagent.org/) by using the [`OPA REST API`](https://www.openpolicyagent.org/docs/latest/rest-api/), `OPA` tries to find at least one rule having the same name as the request that returns `true` given the API input parameters defined by the [ttRPC API](../../src/libs/protocols/protos/agent.proto).
 
-Examples of rules:
+Examples of rules, corresponding to the Kata Agent `CopyFile` and `ExecProcess` requests:
 
 ```
 import future.keywords.in
@@ -191,6 +191,6 @@ ExecProcessRequest {
 
 ```
 
-As shown in these examples, `input` is provided to `OPA` by the Kata Agent, as a ``JSON`` format representation of the API request parameter.
+The `input` data from these examples is provided to `OPA` by the Kata Agent, as a ``JSON`` format representation of the API request parameters.
 
 For additional examples of Policy rules, see [`rules.rego`](../../src/tools/genpolicy/rules.rego).
