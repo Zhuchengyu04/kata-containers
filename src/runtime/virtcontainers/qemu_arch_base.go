@@ -897,7 +897,7 @@ func (q *qemuArchBase) setPFlash(p []string) {
 }
 
 // append protection device
-func (q *qemuArchBase) appendProtectionDevice(devices []govmmQemu.Device, firmware, firmwareVolume string) ([]govmmQemu.Device, string, error) {
+func (q *qemuArchBase) appendProtectionDevice(devices []govmmQemu.Device, firmware, firmwareVolume string, configHash string) ([]govmmQemu.Device, string, error) {
 	hvLogger.WithField("arch", runtime.GOARCH).Warnf("Confidential Computing has not been implemented for this architecture")
 	return devices, firmware, nil
 }
