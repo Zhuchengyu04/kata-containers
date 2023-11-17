@@ -2776,17 +2776,17 @@ func (s *Sandbox) resetVCPUsPinning(ctx context.Context, vCPUThreadsMap VcpuThre
 
 // getAgentPolicyHash calculates the hash of the policy, and returns the base64 encoding of that hash
 func getAgentPolicyHash(policy string) string {
-       if len(policy) == 0 {
-               return ""
-       }
+	if len(policy) == 0 {
+		return ""
+	}
 
-       h := sha256.New()
-       h.Write([]byte(policy))
-       hash := h.Sum(nil)
-       virtLog.WithField("hash", hash).Error("policy hash")
+	h := sha256.New()
+	h.Write([]byte(policy))
+	hash := h.Sum(nil)
+	virtLog.WithField("hash", hash).Error("policy hash")
 
-       encoded_hash := make([]byte, base64.StdEncoding.EncodedLen(len(hash)))
-       base64.StdEncoding.Encode(encoded_hash, hash)
-       virtLog.WithField("encoded hash", encoded_hash).Error("encoded policy hash")
-       return string(encoded_hash);
+	encoded_hash := make([]byte, base64.StdEncoding.EncodedLen(len(hash)))
+	base64.StdEncoding.Encode(encoded_hash, hash)
+	virtLog.WithField("encoded hash", encoded_hash).Error("encoded policy hash")
+	return string(encoded_hash)
 }
