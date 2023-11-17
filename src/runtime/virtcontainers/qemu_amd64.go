@@ -263,7 +263,7 @@ func (q *qemuAmd64) enableProtection() error {
 }
 
 // append protection device
-func (q *qemuAmd64) appendProtectionDevice(devices []govmmQemu.Device, firmware, firmwareVolume string) ([]govmmQemu.Device, string, error) {
+func (q *qemuAmd64) appendProtectionDevice(devices []govmmQemu.Device, firmware, firmwareVolume string, configHash string) ([]govmmQemu.Device, string, error) {
 	if q.sgxEPCSize != 0 {
 		devices = append(devices,
 			govmmQemu.Object{
