@@ -2783,10 +2783,9 @@ func getAgentPolicyHash(policy string) string {
 	h := sha256.New()
 	h.Write([]byte(policy))
 	hash := h.Sum(nil)
-	virtLog.WithField("hash", hash).Error("policy hash")
+	virtLog.WithField("hash", hash).Info("policy hash")
 
 	encoded_hash := make([]byte, base64.StdEncoding.EncodedLen(len(hash)))
 	base64.StdEncoding.Encode(encoded_hash, hash)
-	virtLog.WithField("encoded hash", encoded_hash).Error("encoded policy hash")
 	return string(encoded_hash)
 }
