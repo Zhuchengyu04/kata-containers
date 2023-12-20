@@ -30,6 +30,8 @@
         "kubernetes/incomplete-init/cassandra-statefulset.yaml",
         "kubernetes/incomplete-init/controller.yaml",
         "kubernetes/incomplete-init/cockroachdb-statefulset.yaml",
+        "kubernetes/incomplete-init/node_ds.yaml",
+        "kubernetes/incomplete-init/redis-master-controller.yaml",
         "pod/pod-exec.yaml",
         "pod/pod-lifecycle.yaml",
         "pod/pod-one-container.yaml",
