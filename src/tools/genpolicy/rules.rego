@@ -1064,8 +1064,18 @@ CopyFileRequest {
     print("CopyFileRequest: input.path =", input.path)
 
     some regex1 in policy_data.request_defaults.CopyFileRequest
-    regex2 := replace(regex1, "$(cpath)", policy_data.common.cpath)
-    regex.match(regex2, input.path)
+    print("CopyFileRequest: regex1 =", regex1)
+
+    regex2 := replace(regex1, "$(sfprefix)", policy_data.common.sfprefix)
+    print("CopyFileRequest: regex2 =", regex2)
+
+    regex3 := replace(regex2, "$(cpath)", policy_data.common.cpath)
+    print("CopyFileRequest: regex3 =", regex3)
+
+    regex4 := replace(regex3, "$(bundle-id)", "[a-z0-9]{64}")
+    print("CopyFileRequest: regex4 =", regex4)
+
+    regex.match(regex4, input.path)
 
     print("CopyFileRequest: true")
 }
