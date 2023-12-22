@@ -310,16 +310,26 @@ pub fn check_policy_hash(policy: &str) -> Result<()> {
     Ok(())
 }
 
+/// PolicyCopyFileRequest is very similar to protocols::agent::CopyFileRequest, except for:
+/// - Converting the data field from bytes to a source file path for symlinks - to help
+/// OPA verify those path strings.
+/// - Deleting the data bytes for other types of CopyFile requests - to avoid sending
+/// large amount of data to OPA.
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 struct PolicyCopyFileRequest {
     path: String,
-    symlink_source: PathBuf,
+    file_size: i64,
+    file_mode: u32,
+    dir_mode: u32,
+    uid: i32,
+    gid: i32,
+    offset: i64,
+    data: PathBuf,
 }
 
 pub fn serialize_copy_file_request(req: &protocols::agent::CopyFileRequest) -> String {
     let sflag = stat::SFlag::from_bits_truncate(req.file_mode);
     let symlink_source = if sflag.contains(stat::SFlag::S_IFLNK) {
-        // Help OPA by converting this filesystem path from bytes to string.
         PathBuf::from(OsStr::from_bytes(&req.data))
     } else {
         PathBuf::new()
@@ -327,7 +337,13 @@ pub fn serialize_copy_file_request(req: &protocols::agent::CopyFileRequest) -> S
 
     serde_json::to_string(&PolicyCopyFileRequest {
         path: req.path.clone(),
-        symlink_source,
+        file_size: req.file_size,
+        file_mode: req.file_mode,
+        dir_mode: req.dir_mode,
+        uid: req.uid,
+        gid: req.gid,
+        offset: req.offset,
+        data: symlink_source,
     })
     .unwrap()
 }
