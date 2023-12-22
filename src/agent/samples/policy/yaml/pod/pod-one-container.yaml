@@ -48,8 +48,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
-      securityContext:
-        privileged: true
       command:
         - /bin/sh
       args:
