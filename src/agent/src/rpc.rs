@@ -68,9 +68,6 @@ use crate::AGENT_CONFIG;
 use crate::trace_rpc_call;
 use crate::tracer::extract_carrier_from_ttrpc;
 
-#[cfg(feature = "agent-policy")]
-use crate::AGENT_POLICY;
-
 use opentelemetry::global;
 use tracing::span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -137,17 +134,15 @@ async fn is_allowed_copy_file(_req: &protocols::agent::CopyFileRequest) -> ttrpc
 }
 
 #[cfg(feature = "agent-policy")]
+use crate::AGENT_POLICY;
+
+#[cfg(feature = "agent-policy")]
 async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Result<()> {
-    let request = serde_json::to_string(req).unwrap();
-    let mut policy = AGENT_POLICY.lock().await;
-    if !policy
-        .is_allowed_endpoint(req.descriptor_dyn().name(), &request)
-        .await
-    {
-        warn!(sl(), "{} is blocked by policy", req.descriptor_dyn().name());
+    let allowed = crate::policy::is_allowed(req).await;
+    if allowed.is_err() {
         Err(ttrpc_error(
             ttrpc::Code::PERMISSION_DENIED,
-            format!("{} is blocked by policy", req.descriptor_dyn().name()),
+            format!("{:?}", allowed),
         ))
     } else {
         Ok(())

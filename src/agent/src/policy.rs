@@ -7,6 +7,7 @@ use crate::slog::Drain;
 use crate::AGENT_POLICY;
 
 use anyhow::{bail, Result};
+use protobuf::MessageDyn;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::io::AsyncWriteExt;
@@ -304,4 +305,22 @@ pub fn check_policy_hash(policy: &str) -> Result<()> {
 
 pub async fn set_policy(req: &protocols::agent::SetPolicyRequest) -> Result<()> {
     AGENT_POLICY.lock().await.set_policy(&req.policy).await
+}
+
+pub async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> Result<()> {
+    let request = serde_json::to_string(req).unwrap();
+    let mut policy = AGENT_POLICY.lock().await;
+
+    if !policy
+        .is_allowed_endpoint(req.descriptor_dyn().name(), &request)
+        .await
+    {
+        warn!(
+            sl!(),
+            "{} is blocked by policy",
+            req.descriptor_dyn().name()
+        );
+        bail!("{} is blocked by policy", req.descriptor_dyn().name());
+    }
+    Ok(())
 }
