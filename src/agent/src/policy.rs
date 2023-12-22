@@ -4,11 +4,17 @@
 //
 
 use anyhow::{bail, Result};
-use sha2::{Sha256, Digest};
+use nix::sys::stat;
 use serde::{Deserialize, Serialize};
-use crate::slog::Drain;
+use sha2::{Digest, Sha256};
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
+use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 use tokio::time::{sleep, Duration};
+
+use crate::slog::Drain;
+use crate::AGENT_POLICY;
 
 static EMPTY_JSON_INPUT: &str = "{\"input\":{}}";
 
@@ -16,6 +22,10 @@ static OPA_DATA_PATH: &str = "/data";
 static OPA_POLICIES_PATH: &str = "/policies";
 
 static POLICY_LOG_FILE: &str = "/tmp/policy.txt";
+
+fn same<E>(e: E) -> E {
+    e
+}
 
 /// Convenience macro to obtain the scope logger
 macro_rules! sl {
@@ -298,4 +308,60 @@ pub fn check_policy_hash(policy: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+struct PolicyCopyFileRequest {
+    path: String,
+    symlink_source: PathBuf,
+}
+
+pub fn serialize_copy_file_request(req: &protocols::agent::CopyFileRequest) -> String {
+    let sflag = stat::SFlag::from_bits_truncate(req.file_mode);
+    let symlink_source = if sflag.contains(stat::SFlag::S_IFLNK) {
+        // Help OPA by converting this filesystem path from bytes to string.
+        PathBuf::from(OsStr::from_bytes(&req.data))
+    } else {
+        PathBuf::new()
+    };
+
+    serde_json::to_string(&PolicyCopyFileRequest {
+        path: req.path.clone(),
+        symlink_source,
+    })
+    .unwrap()
+}
+
+pub async fn is_allowed_request(ep: &str, request: &str) -> ttrpc::Result<()> {
+    let mut policy = AGENT_POLICY.lock().await;
+    if !policy.is_allowed_endpoint(ep, &request).await {
+        warn!(sl!(), "{ep} is blocked by policy");
+        Err(crate::rpc::ttrpc_error(
+            ttrpc::Code::PERMISSION_DENIED,
+            format!("{ep} is blocked by policy"),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+pub async fn set_policy(req: &protocols::agent::SetPolicyRequest) -> ttrpc::Result<()> {
+    let ep = "SetPolicy";
+    let request = serde_json::to_string(req).unwrap();
+    let mut policy = AGENT_POLICY.lock().await;
+
+    if !policy.is_allowed_endpoint(ep, &request).await {
+        warn!(sl!(), "{ep} is blocked by policy");
+        Err(crate::rpc::ttrpc_error(
+            ttrpc::Code::PERMISSION_DENIED,
+            format!("{ep} is blocked by policy"),
+        ))
+    } else if let Err(e) = policy.set_policy(&req.policy).await.map_err(same) {
+        Err(crate::rpc::ttrpc_error(
+            ttrpc::Code::PERMISSION_DENIED,
+            format!("{ep}: {e}"),
+        ))
+    } else {
+        Ok(())
+    }
 }

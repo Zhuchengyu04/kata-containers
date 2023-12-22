@@ -68,9 +68,6 @@ use crate::AGENT_CONFIG;
 use crate::trace_rpc_call;
 use crate::tracer::extract_carrier_from_ttrpc;
 
-#[cfg(feature = "agent-policy")]
-use crate::AGENT_POLICY;
-
 use opentelemetry::global;
 use tracing::span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -123,7 +120,7 @@ fn sl() -> slog::Logger {
 }
 
 // Convenience function to wrap an error and response to ttrpc client
-fn ttrpc_error(code: ttrpc::Code, err: impl Debug) -> ttrpc::Error {
+pub fn ttrpc_error(code: ttrpc::Code, err: impl Debug) -> ttrpc::Error {
     get_rpc_status(code, format!("{:?}", err))
 }
 
@@ -132,67 +129,20 @@ async fn is_allowed(_req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Resul
     Ok(())
 }
 #[cfg(not(feature = "agent-policy"))]
-async fn is_allowed_copy_file(_req: &protocols::agent::CopyFileRequest) -> ttrpc::Result<()> {
+async fn is_allowed_copy_file(_req: &CopyFileRequest) -> ttrpc::Result<()> {
     Ok(())
 }
 
 #[cfg(feature = "agent-policy")]
 async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Result<()> {
     let request = serde_json::to_string(req).unwrap();
-    let mut policy = AGENT_POLICY.lock().await;
-    if !policy
-        .is_allowed_endpoint(req.descriptor_dyn().name(), &request)
-        .await
-    {
-        warn!(sl(), "{} is blocked by policy", req.descriptor_dyn().name());
-        Err(ttrpc_error(
-            ttrpc::Code::PERMISSION_DENIED,
-            format!("{} is blocked by policy", req.descriptor_dyn().name()),
-        ))
-    } else {
-        Ok(())
-    }
+    crate::policy::is_allowed_request(req.descriptor_dyn().name(), &request).await
 }
 
 #[cfg(feature = "agent-policy")]
-#[derive(::serde::Serialize, ::serde::Deserialize)]
-struct PolicyCopyFileRequest {
-    path: String,
-    symlink_source: PathBuf,
-}
-
-#[cfg(feature = "agent-policy")]
-fn adjust_copy_file_request(req: &protocols::agent::CopyFileRequest) -> String {
-    let sflag = stat::SFlag::from_bits_truncate(req.file_mode);
-    let symlink_source = if sflag.contains(stat::SFlag::S_IFLNK) {
-        PathBuf::from(OsStr::from_bytes(&req.data))
-    } else {
-        PathBuf::new()
-    };
-
-    serde_json::to_string(&PolicyCopyFileRequest {
-        path: req.path.clone(),
-        symlink_source,
-    })
-    .unwrap()
-}
-
-#[cfg(feature = "agent-policy")]
-async fn is_allowed_copy_file(req: &protocols::agent::CopyFileRequest) -> ttrpc::Result<()> {
-    let request = adjust_copy_file_request(req);
-    let mut policy = AGENT_POLICY.lock().await;
-    if !policy
-        .is_allowed_endpoint(req.descriptor_dyn().name(), &request)
-        .await
-    {
-        warn!(sl(), "{} is blocked by policy", req.descriptor_dyn().name());
-        Err(ttrpc_error(
-            ttrpc::Code::PERMISSION_DENIED,
-            format!("{} is blocked by policy", req.descriptor_dyn().name()),
-        ))
-    } else {
-        Ok(())
-    }
+async fn is_allowed_copy_file(req: &CopyFileRequest) -> ttrpc::Result<()> {
+    let request = crate::policy::serialize_copy_file_request(req);
+    crate::policy::is_allowed_request(req.descriptor_dyn().name(), &request).await
 }
 
 fn same<E>(e: E) -> E {
@@ -1484,14 +1434,9 @@ impl agent_ttrpc::AgentService for AgentService {
         req: protocols::agent::SetPolicyRequest,
     ) -> ttrpc::Result<Empty> {
         trace_rpc_call!(ctx, "set_policy", req);
-        is_allowed(&req).await?;
 
-        AGENT_POLICY
-            .lock()
-            .await
-            .set_policy(&req.policy)
-            .await
-            .map_ttrpc_err(same)?;
+        // set_policy() calls is_allowed() too.
+        crate::policy::set_policy(&req).await?;
 
         Ok(Empty::new())
     }
