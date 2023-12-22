@@ -158,6 +158,12 @@ async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Result
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 struct PolicyCopyFileRequest {
     path: String,
+    file_size: i64,
+    file_mode: u32,
+    dir_mode: u32,
+    uid: i32,
+    gid: i32,
+    offset: i64,
     symlink_source: PathBuf,
 }
 
@@ -172,6 +178,12 @@ fn adjust_copy_file_request(req: &protocols::agent::CopyFileRequest) -> String {
 
     serde_json::to_string(&PolicyCopyFileRequest {
         path: req.path.clone(),
+        file_size: req.file_size,
+        file_mode: req.file_mode,
+        dir_mode: req.dir_mode,
+        uid: req.uid,
+        gid: req.gid,
+        offset: req.offset,
         symlink_source,
     })
     .unwrap()
