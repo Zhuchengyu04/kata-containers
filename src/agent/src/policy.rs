@@ -307,20 +307,17 @@ pub async fn set_policy(req: &protocols::agent::SetPolicyRequest) -> Result<()> 
     AGENT_POLICY.lock().await.set_policy(&req.policy).await
 }
 
-pub async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> Result<()> {
-    let request = serde_json::to_string(req).unwrap();
+async fn is_allowed_request(ep: &str, request: &str) -> Result<()> {
     let mut policy = AGENT_POLICY.lock().await;
-
-    if !policy
-        .is_allowed_endpoint(req.descriptor_dyn().name(), &request)
-        .await
-    {
-        warn!(
-            sl!(),
-            "{} is blocked by policy",
-            req.descriptor_dyn().name()
-        );
-        bail!("{} is blocked by policy", req.descriptor_dyn().name());
+    if !policy.is_allowed_endpoint(ep, request).await {
+        let message = format!("{ep} is blocked by policy");
+        warn!(sl!(), "{message}");
+        bail!("{message}");
     }
     Ok(())
+}
+
+pub async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> Result<()> {
+    let request = serde_json::to_string(req).unwrap();
+    is_allowed_request(req.descriptor_dyn().name(), &request).await
 }

@@ -140,7 +140,7 @@ use crate::AGENT_POLICY;
 async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Result<()> {
     crate::policy::is_allowed(req)
         .await
-        .map_err(|e| Err(ttrpc_error(ttrpc::Code::PERMISSION_DENIED, e)))
+        .map_err(|e| ttrpc_error(ttrpc::Code::PERMISSION_DENIED, e))
 }
 
 #[cfg(feature = "agent-policy")]
