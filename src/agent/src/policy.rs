@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-use anyhow::{bail, Result};
-use sha2::{Sha256, Digest};
-use serde::{Deserialize, Serialize};
 use crate::slog::Drain;
+use crate::AGENT_POLICY;
+
+use anyhow::{bail, Result};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tokio::io::AsyncWriteExt;
 use tokio::time::{sleep, Duration};
 
@@ -298,4 +300,8 @@ pub fn check_policy_hash(policy: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub async fn set_policy(req: &protocols::agent::SetPolicyRequest) -> Result<()> {
+    AGENT_POLICY.lock().await.set_policy(&req.policy).await
 }
