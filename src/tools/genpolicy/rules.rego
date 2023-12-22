@@ -1066,7 +1066,7 @@ check_directory_traversal(i_path) {
 }
 
 CopyFileRequest {
-    print("CopyFileRequest: input.path =", input.path)
+    print("CopyFileRequest: input =", input)
 
     check_directory_traversal(input.path)
 

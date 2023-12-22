@@ -131,10 +131,55 @@ fn ttrpc_error(code: ttrpc::Code, err: impl Debug) -> ttrpc::Error {
 async fn is_allowed(_req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Result<()> {
     Ok(())
 }
+#[cfg(not(feature = "agent-policy"))]
+async fn is_allowed_copy_file(_req: &protocols::agent::CopyFileRequest) -> ttrpc::Result<()> {
+    Ok(())
+}
 
 #[cfg(feature = "agent-policy")]
 async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Result<()> {
     let request = serde_json::to_string(req).unwrap();
+    let mut policy = AGENT_POLICY.lock().await;
+    if !policy
+        .is_allowed_endpoint(req.descriptor_dyn().name(), &request)
+        .await
+    {
+        warn!(sl(), "{} is blocked by policy", req.descriptor_dyn().name());
+        Err(ttrpc_error(
+            ttrpc::Code::PERMISSION_DENIED,
+            format!("{} is blocked by policy", req.descriptor_dyn().name()),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "agent-policy")]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+struct PolicyCopyFileRequest {
+    path: String,
+    symlink_source: PathBuf,
+}
+
+#[cfg(feature = "agent-policy")]
+fn adjust_copy_file_request(req: &protocols::agent::CopyFileRequest) -> String {
+    let sflag = stat::SFlag::from_bits_truncate(req.file_mode);
+    let symlink_source = if sflag.contains(stat::SFlag::S_IFLNK) {
+        PathBuf::from(OsStr::from_bytes(&req.data))
+    } else {
+        PathBuf::new()
+    };
+
+    serde_json::to_string(&PolicyCopyFileRequest {
+        path: req.path.clone(),
+        symlink_source,
+    })
+    .unwrap()
+}
+
+#[cfg(feature = "agent-policy")]
+async fn is_allowed_copy_file(req: &protocols::agent::CopyFileRequest) -> ttrpc::Result<()> {
+    let request = adjust_copy_file_request(req);
     let mut policy = AGENT_POLICY.lock().await;
     if !policy
         .is_allowed_endpoint(req.descriptor_dyn().name(), &request)
@@ -1340,7 +1385,7 @@ impl agent_ttrpc::AgentService for AgentService {
         req: protocols::agent::CopyFileRequest,
     ) -> ttrpc::Result<Empty> {
         trace_rpc_call!(ctx, "copy_file", req);
-        is_allowed(&req).await?;
+        is_allowed_copy_file(&req).await?;
 
         do_copy_file(&req).map_ttrpc_err(same)?;
 
