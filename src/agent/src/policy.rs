@@ -23,10 +23,6 @@ static OPA_POLICIES_PATH: &str = "/policies";
 
 static POLICY_LOG_FILE: &str = "/tmp/policy.txt";
 
-fn same<E>(e: E) -> E {
-    e
-}
-
 /// Convenience macro to obtain the scope logger
 macro_rules! sl {
     () => {
@@ -372,7 +368,7 @@ pub async fn set_policy(req: &protocols::agent::SetPolicyRequest) -> ttrpc::Resu
             ttrpc::Code::PERMISSION_DENIED,
             format!("{ep} is blocked by policy"),
         ))
-    } else if let Err(e) = policy.set_policy(&req.policy).await.map_err(same) {
+    } else if let Err(e) = policy.set_policy(&req.policy).await {
         Err(crate::rpc::ttrpc_error(
             ttrpc::Code::PERMISSION_DENIED,
             format!("{ep}: {e}"),
