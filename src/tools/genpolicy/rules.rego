@@ -1065,9 +1065,15 @@ check_directory_traversal(i_path) {
     endswith(i_path, "/..") == false
 }
 
+check_symlink_source(i_src) {
+    startswith(i_src, "/") == false
+    check_directory_traversal(i_src)
+}
+
 CopyFileRequest {
     print("CopyFileRequest: input =", input)
 
+    check_symlink_source(input.symlink_source)
     check_directory_traversal(input.path)
 
     some regex1 in policy_data.request_defaults.CopyFileRequest
