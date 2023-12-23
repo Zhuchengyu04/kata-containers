@@ -134,9 +134,6 @@ async fn is_allowed_copy_file(_req: &protocols::agent::CopyFileRequest) -> ttrpc
 }
 
 #[cfg(feature = "agent-policy")]
-use crate::AGENT_POLICY;
-
-#[cfg(feature = "agent-policy")]
 async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Result<()> {
     crate::policy::is_allowed(req)
         .await
@@ -144,56 +141,10 @@ async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> ttrpc::Result
 }
 
 #[cfg(feature = "agent-policy")]
-#[derive(::serde::Serialize, ::serde::Deserialize)]
-struct PolicyCopyFileRequest {
-    path: String,
-    file_size: i64,
-    file_mode: u32,
-    dir_mode: u32,
-    uid: i32,
-    gid: i32,
-    offset: i64,
-    symlink_source: PathBuf,
-}
-
-#[cfg(feature = "agent-policy")]
-fn adjust_copy_file_request(req: &protocols::agent::CopyFileRequest) -> String {
-    let sflag = stat::SFlag::from_bits_truncate(req.file_mode);
-    let symlink_source = if sflag.contains(stat::SFlag::S_IFLNK) {
-        PathBuf::from(OsStr::from_bytes(&req.data))
-    } else {
-        PathBuf::new()
-    };
-
-    serde_json::to_string(&PolicyCopyFileRequest {
-        path: req.path.clone(),
-        file_size: req.file_size,
-        file_mode: req.file_mode,
-        dir_mode: req.dir_mode,
-        uid: req.uid,
-        gid: req.gid,
-        offset: req.offset,
-        symlink_source,
-    })
-    .unwrap()
-}
-
-#[cfg(feature = "agent-policy")]
 async fn is_allowed_copy_file(req: &protocols::agent::CopyFileRequest) -> ttrpc::Result<()> {
-    let request = adjust_copy_file_request(req);
-    let mut policy = AGENT_POLICY.lock().await;
-    if !policy
-        .is_allowed_endpoint(req.descriptor_dyn().name(), &request)
+    crate::policy::is_allowed_copy_file(req)
         .await
-    {
-        warn!(sl(), "{} is blocked by policy", req.descriptor_dyn().name());
-        Err(ttrpc_error(
-            ttrpc::Code::PERMISSION_DENIED,
-            format!("{} is blocked by policy", req.descriptor_dyn().name()),
-        ))
-    } else {
-        Ok(())
-    }
+        .map_err(|e| ttrpc_error(ttrpc::Code::PERMISSION_DENIED, e))
 }
 
 fn same<E>(e: E) -> E {

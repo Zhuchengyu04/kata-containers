@@ -7,9 +7,13 @@ use crate::slog::Drain;
 use crate::AGENT_POLICY;
 
 use anyhow::{bail, Result};
+use nix::sys::stat;
 use protobuf::MessageDyn;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
+use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 use tokio::time::{sleep, Duration};
 
@@ -318,6 +322,40 @@ async fn is_allowed_request(ep: &str, request: &str) -> Result<()> {
 }
 
 pub async fn is_allowed(req: &(impl MessageDyn + serde::Serialize)) -> Result<()> {
-    let request = serde_json::to_string(req).unwrap();
+    let request = serde_json::to_string(req)?;
+    is_allowed_request(req.descriptor_dyn().name(), &request).await
+}
+
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+struct PolicyCopyFileRequest {
+    path: String,
+    file_size: i64,
+    file_mode: u32,
+    dir_mode: u32,
+    uid: i32,
+    gid: i32,
+    offset: i64,
+    symlink_source: PathBuf,
+}
+
+pub async fn is_allowed_copy_file(req: &protocols::agent::CopyFileRequest) -> Result<()> {
+    let sflag = stat::SFlag::from_bits_truncate(req.file_mode);
+    let symlink_source = if sflag.contains(stat::SFlag::S_IFLNK) {
+        PathBuf::from(OsStr::from_bytes(&req.data))
+    } else {
+        PathBuf::new()
+    };
+
+    let request = serde_json::to_string(&PolicyCopyFileRequest {
+        path: req.path.clone(),
+        file_size: req.file_size,
+        file_mode: req.file_mode,
+        dir_mode: req.dir_mode,
+        uid: req.uid,
+        gid: req.gid,
+        offset: req.offset,
+        symlink_source,
+    })?;
+
     is_allowed_request(req.descriptor_dyn().name(), &request).await
 }
