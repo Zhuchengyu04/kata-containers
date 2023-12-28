@@ -69,7 +69,7 @@ use crate::trace_rpc_call;
 use crate::tracer::extract_carrier_from_ttrpc;
 
 #[cfg(feature = "agent-policy")]
-use crate::policy::{do_set_policy, is_allowed};
+use crate::policy::{do_set_policy, is_allowed, is_allowed_copy_file};
 
 use opentelemetry::global;
 use tracing::span;
@@ -129,6 +129,10 @@ pub fn ttrpc_error(code: ttrpc::Code, err: impl Debug) -> ttrpc::Error {
 
 #[cfg(not(feature = "agent-policy"))]
 async fn is_allowed(_req: &impl serde::Serialize) -> ttrpc::Result<()> {
+    Ok(())
+}
+#[cfg(not(feature = "agent-policy"))]
+async fn is_allowed_copy_file(_req: &CopyFileRequest) -> ttrpc::Result<()> {
     Ok(())
 }
 
@@ -1322,7 +1326,7 @@ impl agent_ttrpc::AgentService for AgentService {
         req: protocols::agent::CopyFileRequest,
     ) -> ttrpc::Result<Empty> {
         trace_rpc_call!(ctx, "copy_file", req);
-        is_allowed(&req).await?;
+        is_allowed_copy_file(&req).await?;
 
         do_copy_file(&req).map_ttrpc_err(same)?;
 
